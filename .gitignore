@@ -1,0 +1,64 @@
+# ========================
+# Secrets — never commit
+# ========================
+*.env
+.env.*
+secrets/
+**/passwords*
+**/credentials*
+*.key
+*.pem
+*.crt
+*.pfx
+id_rsa*
+known_hosts
+
+# ========================
+# Proxmox
+# ========================
+*.qcow2
+*.vmdk
+*.iso
+*.img
+dump/
+backup/
+
+# ========================
+# pfSense
+# ========================
+config.xml
+# Never commit the real pfSense config — it contains hashed passwords,
+# DHCP leases, and full firewall state. Use sanitized summaries instead.
+
+# ========================
+# Wazuh
+# ========================
+ossec.log
+*.pid
+var/
+logs/
+
+# ========================
+# OS junk
+# ========================
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ========================
+# Editors
+# ========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ========================
+# Temp & logs
+# ========================
+*.log
+tmp/
+*.tmp
+*.bak

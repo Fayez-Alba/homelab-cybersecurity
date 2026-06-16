@@ -1,0 +1,70 @@
+# =============================================================
+# Proxmox Network Interfaces — /etc/network/interfaces
+# =============================================================
+# Sanitized example. Replace NIC names and IPs with your values.
+#
+# Key design decisions:
+#   - Physical NIC (eno1) is the VLAN trunk to the managed switch
+#   - USB NIC (enxXXXXXXXXXXXX) is the dedicated WAN uplink
+#   - Each VLAN gets its own sub-interface and bridge
+#   - post-up scripts fix tap interfaces stuck in UNKNOWN state
+# =============================================================
+
+auto lo
+iface lo inet loopback
+
+# --- Physical NIC — VLAN trunk to TL-SG108E ---
+auto eno1
+iface eno1 inet manual
+
+# --- VLAN Sub-interfaces ---
+auto eno1.1
+iface eno1.1 inet manual
+
+auto eno1.20
+iface eno1.20 inet manual
+
+auto eno1.40
+iface eno1.40 inet manual
+
+auto eno1.50
+iface eno1.50 inet manual
+
+# --- Bridge: Management (VLAN 1) ---
+auto vmbr0
+iface vmbr0 inet static
+    address  x.x.x.x/24
+    gateway  x.x.x.x
+    bridge-ports eno1.1
+    bridge-stp off
+    bridge-fd 0
+
+# --- Bridge: Lab Network (VLAN 20) ---
+auto vmbr20
+iface vmbr20 inet manual
+    bridge-ports eno1.20
+    bridge-stp off
+    bridge-fd 0
+    # Fix: bring tap interfaces up after bridge init
+    post-up /usr/local/bin/fix-tap-interfaces.sh || true
+
+# --- Bridge: WAN (USB NIC) ---
+auto vmbr30
+iface vmbr30 inet manual
+    bridge-ports enxXXXXXXXXXXXX
+    bridge-stp off
+    bridge-fd 0
+
+# --- Bridge: Guest WiFi (VLAN 40) ---
+auto vmbr40
+iface vmbr40 inet manual
+    bridge-ports eno1.40
+    bridge-stp off
+    bridge-fd 0
+
+# --- Bridge: IoT (VLAN 50) ---
+auto vmbr50
+iface vmbr50 inet manual
+    bridge-ports eno1.50
+    bridge-stp off
+    bridge-fd 0

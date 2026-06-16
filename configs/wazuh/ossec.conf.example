@@ -1,0 +1,62 @@
+<!--
+  Wazuh Agent Configuration — ossec.conf.example
+  ================================================
+  Template for deploying Wazuh agents to lab endpoints.
+  Replace placeholder values before use.
+
+  Deployed on: Kali Linux, Ubuntu Server, Windows 11
+  Wazuh version: 4.14.2
+-->
+
+<ossec_config>
+
+  <!-- Manager connection -->
+  <client>
+    <server>
+      <address>WAZUH_MANAGER_IP</address>
+      <port>1514</port>
+      <protocol>tcp</protocol>
+    </server>
+    <enrollment>
+      <enabled>yes</enabled>
+    </enrollment>
+  </client>
+
+  <!-- File Integrity Monitoring -->
+  <syscheck>
+    <disabled>no</disabled>
+    <frequency>43200</frequency>
+
+    <!-- Linux directories to monitor -->
+    <directories check_all="yes" realtime="yes">/etc,/usr/bin,/usr/sbin</directories>
+    <directories check_all="yes" realtime="yes">/bin,/sbin,/boot</directories>
+
+    <!-- Ignore noisy paths -->
+    <ignore>/etc/mtab</ignore>
+    <ignore>/etc/hosts.deny</ignore>
+    <ignore>/etc/mail/statistics</ignore>
+    <ignore>/etc/random-seed</ignore>
+    <ignore>/etc/adjtime</ignore>
+    <ignore>/etc/prelink.cache</ignore>
+
+    <!-- Windows directories (when deployed on Win11) -->
+    <!-- <directories check_all="yes" realtime="yes">C:\Windows\System32</directories> -->
+  </syscheck>
+
+  <!-- Log collection -->
+  <localfile>
+    <log_format>syslog</log_format>
+    <location>/var/log/syslog</location>
+  </localfile>
+
+  <localfile>
+    <log_format>syslog</log_format>
+    <location>/var/log/auth.log</location>
+  </localfile>
+
+  <!-- Active response (future) -->
+  <!-- <active-response>
+    <disabled>no</disabled>
+  </active-response> -->
+
+</ossec_config>
