@@ -1,6 +1,6 @@
 # 🔒 Home Cybersecurity Lab
 
-A segmented home network lab built from scratch on a single mini PC — featuring VLAN isolation, a dedicated firewall/router, and centralized SIEM monitoring. Designed to simulate an enterprise SOC environment for hands-on threat detection and incident response.
+A segmented home network lab built from scratch on a single mini PC — featuring VLAN isolation, a dedicated firewall/router, IDS monitoring, and centralized SIEM. Designed to simulate an enterprise SOC environment for hands-on threat detection and incident response.
 
 > **📄 Full build documentation:** For the complete phase-by-phase walkthrough with commands, configs, and detailed troubleshooting — see [docs/full-lab-writeup.pdf](docs/full-lab-writeup.pdf)
 
@@ -11,7 +11,7 @@ A segmented home network lab built from scratch on a single mini PC — featurin
 ![Network Architecture](docs/architecture-diagram.png)
 
 ```
-ISP Gateway (NAT mode — no true bridge support)
+ISP Gateway (Bridge Mode)
         │
    [UGREEN USB NIC — Dedicated WAN]
         │
@@ -21,6 +21,7 @@ ISP Gateway (NAT mode — no true bridge support)
    │         │──── VLAN 40 — Guest WiFi (internet-only)
    │         │──── VLAN 50 — IoT (restricted)
    └────┬────┘
+        │ Suricata IDS monitoring LAN traffic
         │
   [TP-Link TL-SG108E — 802.1Q VLAN Trunking]
         │
@@ -42,6 +43,7 @@ ISP Gateway (NAT mode — no true bridge support)
 |---|---|---|
 | Hypervisor | Proxmox VE 9.1.1 | VM hosting on bare metal |
 | Firewall / Router | pfSense 2.8.1 | VLAN routing, NAT, DHCP, firewall rules |
+| IDS | Suricata 7.0.11 (on pfSense) | Network intrusion detection on LAN interface |
 | SIEM | Wazuh 4.14.2 | Log collection, file integrity monitoring, alerts |
 | Managed Switch | TP-Link TL-SG108E | 802.1Q VLAN trunking |
 | Wireless AP | TP-Link Omada EAP723 | 3 SSIDs segmented by VLAN |
@@ -66,15 +68,25 @@ Four VLANs enforced at the switch and routed through pfSense, each with dedicate
 | 40 | Guest | Internet-only WiFi for visitors | pfSense GUEST |
 | 50 | IoT | Restricted smart devices | pfSense IOT |
 
-The ISP gateway (Rogers Ignite) doesn't support true bridge mode, so a **dedicated USB NIC** provides a clean WAN path into pfSense — eliminating double-NAT and keeping WAN traffic completely off the VLAN trunk.
+The ISP gateway (Rogers Ignite) runs in bridge mode, with a **dedicated USB NIC** providing a clean WAN path into pfSense — keeping WAN traffic completely off the VLAN trunk.
 
 ---
 
-## 📊 SIEM — Wazuh 4.14.2
+## 📊 Monitoring Stack
+
+### Wazuh 4.14.2 (SIEM)
 
 Wazuh runs as a dedicated VM with the full stack (manager, indexer, dashboard). Agents on all three target VMs ship logs over port 1514. The Filebeat pipeline routes parsed events into the indexer for dashboard visualization.
 
 Current monitoring coverage includes file integrity monitoring (FIM), security event correlation, and agent health tracking. pfSense firewall logs are ingested via syslog.
+
+### Suricata 7.0.11 (Network IDS)
+
+Suricata runs as a pfSense package on the **LAN interface (VLAN 20)**, inspecting all traffic entering and leaving the lab network. It operates in **IDS mode** (detection and logging, not blocking) with EVE JSON output enabled for SIEM integration.
+
+**Rule sources:** Emerging Threats Open (ET Open) — 26,000+ rules covering scan detection, exploit signatures, malware communication, DNS abuse, and attack response patterns.
+
+**Why LAN and not WAN:** Suricata on the WAN interface would mostly duplicate pfSense's default deny-all inbound policy. On the LAN interface, it catches the traffic that matters — outbound command-and-control, lateral movement patterns, and responses to attack tools.
 
 ---
 
@@ -92,10 +104,13 @@ The TL-SG108E appeared to save VLAN configs but silently reverted on reboot. Ubu
 SELinux blocked Wazuh agent communication on port 1514. The quick fix was permissive mode — which I used, and documented. But I also documented that this is a trade-off: in a production environment, the correct move is writing a custom SELinux policy, not disabling enforcement. Knowing the shortcut *and* knowing why it's a shortcut is the difference between a lab exercise and real engineering judgment.
 
 ### Workarounds are fine — undocumented workarounds are debt
-The Rogers gateway doesn't support true bridge mode. The tap interfaces need post-up scripts after every Proxmox reboot. These aren't failures — they're constraints. But if I hadn't documented them, the next person (or future me) would waste hours rediscovering them. Writing it down is part of the fix.
+Getting the Rogers gateway into bridge mode was its own troubleshooting exercise — it was unstable initially and required multiple attempts to configure reliably. The tap interfaces need post-up scripts after every Proxmox reboot. These aren't failures — they're constraints. But if I hadn't documented them, the next person (or future me) would waste hours rediscovering them. Writing it down is part of the fix.
 
 ### Tooling without telemetry is just decoration
 Standing up Wazuh was the easy part. The hard part was the Filebeat pipeline — the dashboard showed zero alerts even though agents were reporting. It looked deployed but it wasn't *working*. That gap between "installed" and "generating actionable data" is where most home labs stop. Pushing through it is what makes this a monitoring stack and not just a checkbox.
+
+### Virtual environments break assumptions about network behavior
+Deploying Suricata on pfSense inside a Proxmox VM revealed that standard checksum validation silently drops packets in virtualized environments — the hypervisor handles checksums at a layer the guest OS can't see. Suricata loaded 26,000+ rules and processed traffic, but generated zero alerts until checksum validation was properly configured. The takeaway: when a detection tool sees traffic but produces no alerts, the problem is often in how the tool interfaces with the environment, not in the rules themselves.
 
 ---
 
@@ -107,6 +122,7 @@ Standing up Wazuh was the easy part. The hard part was the Filebeat pipeline —
 | pfSense Interface Assignments | ![pfSense](docs/screenshots/pfsense-interfaces.png) |
 | pfSense Firewall Rules | ![pfSense](docs/screenshots/pfsense-rules.png) |
 | Wazuh Alert Dashboard | ![Wazuh](docs/screenshots/wazuh-alerts.png) |
+| Suricata IDS Alert | ![Suricata](docs/screenshots/suricata-alert.png) |
 | Switch VLAN Config | ![VLANs](docs/screenshots/vlan-config.png) |
 
 ---
@@ -126,6 +142,7 @@ homelab-cybersecurity/
 │       ├── pfsense-interfaces.png
 │       ├── pfsense-rules.png
 │       ├── wazuh-alerts.png
+│       ├── suricata-alert.png
 │       └── vlan-config.png
 ├── configs/
 │   ├── pfsense/
@@ -145,7 +162,8 @@ homelab-cybersecurity/
 
 ## 🗺️ Roadmap
 
-- [ ] Deploy Suricata IDS for network-level threat detection
+- [x] Deploy Suricata IDS for network-level threat detection
+- [ ] Integrate Suricata alerts with Wazuh SIEM dashboard
 - [ ] Integrate TheHive for incident case management
 - [ ] Add Shuffle SOAR for automated response playbooks
 - [ ] Feed threat intel via MISP
