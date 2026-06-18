@@ -182,8 +182,7 @@ homelab-cybersecurity/
 - [ ] Feed threat intel via MISP
 - [ ] Run MITRE ATT&CK simulations with Atomic Red Team / Caldera
 - [ ] Add vulnerability scanning with OpenVAS
-- [ ] Expand endpoints with a Linux Mint node (MacBook Pro repurpose)
-- [ ] Build Windows Active Directory domain for enterprise-style logging
+
 
 ---
 
