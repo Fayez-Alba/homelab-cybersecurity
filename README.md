@@ -22,6 +22,7 @@ ISP Gateway (Bridge Mode)
    │         │──── VLAN 50 — IoT (restricted)
    └────┬────┘
         │ Suricata IDS monitoring LAN traffic
+        │        ↓ EVE JSON alerts forwarded to Wazuh
         │
   [TP-Link TL-SG108E — 802.1Q VLAN Trunking]
         │
@@ -88,6 +89,12 @@ Suricata runs as a pfSense package on the **LAN interface (VLAN 20)**, inspectin
 
 **Why LAN and not WAN:** Suricata on the WAN interface would mostly duplicate pfSense's default deny-all inbound policy. On the LAN interface, it catches the traffic that matters — outbound command-and-control, lateral movement patterns, and responses to attack tools.
 
+### Suricata → Wazuh Integration
+
+Suricata's EVE JSON alert logs are forwarded from pfSense to the Wazuh manager via a custom UDP forwarder script. Wazuh's built-in Suricata decoder (rule group `suricata`, rule ID `86601`) automatically parses the incoming alerts and enriches them with MITRE ATT&CK classifications.
+
+This gives the lab a **single-pane-of-glass** view: endpoint security events from Wazuh agents alongside network intrusion alerts from Suricata, all in one dashboard.
+
 ---
 
 ## 🧠 Lessons Learned
@@ -112,6 +119,9 @@ Standing up Wazuh was the easy part. The hard part was the Filebeat pipeline —
 ### Virtual environments break assumptions about network behavior
 Deploying Suricata on pfSense inside a Proxmox VM revealed that standard checksum validation silently drops packets in virtualized environments — the hypervisor handles checksums at a layer the guest OS can't see. Suricata loaded 26,000+ rules and processed traffic, but generated zero alerts until checksum validation was properly configured. The takeaway: when a detection tool sees traffic but produces no alerts, the problem is often in how the tool interfaces with the environment, not in the rules themselves.
 
+### The default integration path isn't always the right one
+Integrating Suricata with Wazuh seemed straightforward — enable syslog forwarding and let Wazuh parse it. In practice, pfSense's syslog daemon truncates messages to 480 bytes, silently destroying the JSON alert data. The Wazuh agent couldn't be installed on pfSense (FreeBSD package unavailable). The solution was a custom EVE JSON forwarder script that pipes alert events directly to Wazuh via UDP. Sometimes the "documented" integration path doesn't work, and the real skill is finding an alternative that does.
+
 ---
 
 ## 📸 Screenshots
@@ -123,6 +133,7 @@ Deploying Suricata on pfSense inside a Proxmox VM revealed that standard checksu
 | pfSense Firewall Rules | ![pfSense](docs/screenshots/pfsense-rules.png) |
 | Wazuh Alert Dashboard | ![Wazuh](docs/screenshots/wazuh-alerts.png) |
 | Suricata IDS Alert | ![Suricata](docs/screenshots/suricata-alert.png) |
+| Suricata Alerts in Wazuh SIEM | ![Suricata-Wazuh](docs/screenshots/suricata-wazuh-integration.png) |
 | Switch VLAN Config | ![VLANs](docs/screenshots/vlan-config.png) |
 
 ---
@@ -143,6 +154,7 @@ homelab-cybersecurity/
 │       ├── pfsense-rules.png
 │       ├── wazuh-alerts.png
 │       ├── suricata-alert.png
+│       ├── suricata-wazuh-integration.png
 │       └── vlan-config.png
 ├── configs/
 │   ├── pfsense/
@@ -155,7 +167,8 @@ homelab-cybersecurity/
 │   └── switch/
 │       └── vlan-assignments.md
 └── scripts/
-    └── post-up-tap.sh
+    ├── post-up-tap.sh
+    └── suricata-fwd.sh
 ```
 
 ---
@@ -163,7 +176,7 @@ homelab-cybersecurity/
 ## 🗺️ Roadmap
 
 - [x] Deploy Suricata IDS for network-level threat detection
-- [ ] Integrate Suricata alerts with Wazuh SIEM dashboard
+- [x] Integrate Suricata alerts with Wazuh SIEM dashboard
 - [ ] Integrate TheHive for incident case management
 - [ ] Add Shuffle SOAR for automated response playbooks
 - [ ] Feed threat intel via MISP
