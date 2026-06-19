@@ -97,6 +97,23 @@ This gives the lab a **single-pane-of-glass** view: endpoint security events fro
 
 ---
 
+## 🎯 Attack Simulations
+
+Documented attack exercises run from Kali Linux against lab targets, with detection validated in the Wazuh SIEM. Each exercise maps to a MITRE ATT&CK technique.
+
+| Attack | MITRE ATT&CK | Target | Detection Layer | Result |
+|---|---|---|---|---|
+| SSH Brute Force (Hydra) | T1110 — Brute Force | Ubuntu Server | Wazuh agent | ✅ Detected |
+| Sudo Privilege Escalation | T1548 — Abuse Elevation Control | Ubuntu Server | Wazuh agent | ✅ Detected |
+| File Integrity Modification | T1565.001 — Stored Data Manipulation | Ubuntu Server | Wazuh FIM (syscheck) | ✅ Detected |
+| Network Port Scan (nmap) | T1046 — Network Service Scanning | Ubuntu Server | Suricata IDS | ⚠️ Same-VLAN gap |
+
+**Key finding:** Nmap scans between VMs on the same VLAN bypass pfSense entirely — traffic goes directly through the Proxmox bridge, so Suricata never sees it. This is a real detection gap that mirrors production environments with flat network segments. Endpoint detection and micro-segmentation are the mitigations.
+
+> **Full exercise documentation with commands and SOC analysis:** [docs/attack-simulations.md](docs/attack-simulations.md)
+
+---
+
 ## 🧠 Lessons Learned
 
 The PDF documents *what broke and how I fixed it*. This section covers *what those problems actually taught me* — the thinking behind the troubleshooting.
@@ -122,6 +139,9 @@ Deploying Suricata on pfSense inside a Proxmox VM revealed that standard checksu
 ### The default integration path isn't always the right one
 Integrating Suricata with Wazuh seemed straightforward — enable syslog forwarding and let Wazuh parse it. In practice, pfSense's syslog daemon truncates messages to 480 bytes, silently destroying the JSON alert data. The Wazuh agent couldn't be installed on pfSense (FreeBSD package unavailable). The solution was a custom EVE JSON forwarder script that pipes alert events directly to Wazuh via UDP. Sometimes the "documented" integration path doesn't work, and the real skill is finding an alternative that does.
 
+### Detection gaps are as important as detections
+Running attack simulations revealed that intra-VLAN traffic between VMs on the same Proxmox bridge is invisible to Suricata — because it never traverses pfSense. This mirrors a real enterprise problem: lateral movement within a flat network segment evades perimeter-focused IDS. Knowing where your detection *doesn't* work is just as critical as knowing where it does.
+
 ---
 
 ## 📸 Screenshots
@@ -134,6 +154,7 @@ Integrating Suricata with Wazuh seemed straightforward — enable syslog forward
 | Wazuh Alert Dashboard | ![Wazuh](docs/screenshots/wazuh-alerts.png) |
 | Suricata IDS Alert | ![Suricata](docs/screenshots/suricata-alert.png) |
 | Suricata Alerts in Wazuh SIEM | ![Suricata-Wazuh](docs/screenshots/suricata-wazuh-integration.png) |
+| Attack Simulation Alerts | ![Attacks](docs/screenshots/attack-simulation-alerts.png) |
 | Switch VLAN Config | ![VLANs](docs/screenshots/vlan-config.png) |
 
 ---
@@ -147,6 +168,7 @@ homelab-cybersecurity/
 ├── .gitignore
 ├── docs/
 │   ├── full-lab-writeup.pdf
+│   ├── attack-simulations.md
 │   ├── architecture-diagram.png
 │   └── screenshots/
 │       ├── proxmox-dashboard.png
@@ -155,6 +177,7 @@ homelab-cybersecurity/
 │       ├── wazuh-alerts.png
 │       ├── suricata-alert.png
 │       ├── suricata-wazuh-integration.png
+│       ├── attack-simulation-alerts.png
 │       └── vlan-config.png
 ├── configs/
 │   ├── pfsense/
@@ -177,13 +200,11 @@ homelab-cybersecurity/
 
 - [x] Deploy Suricata IDS for network-level threat detection
 - [x] Integrate Suricata alerts with Wazuh SIEM dashboard
+- [x] Run MITRE ATT&CK-mapped attack simulations
 - [ ] Integrate TheHive for incident case management
 - [ ] Add Shuffle SOAR for automated response playbooks
 - [ ] Feed threat intel via MISP
-- [ ] Run MITRE ATT&CK simulations with Atomic Red Team / Caldera
 - [ ] Add vulnerability scanning with OpenVAS
-- [ ] Expand endpoints with a Linux Mint node (MacBook Pro repurpose)
-- [ ] Build Windows Active Directory domain for enterprise-style logging
 
 ---
 
