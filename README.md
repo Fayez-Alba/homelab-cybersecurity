@@ -1,6 +1,6 @@
 # 🔒 Home Cybersecurity Lab
 
-A segmented home network lab built from scratch on a single mini PC — featuring VLAN isolation, a dedicated firewall/router, IDS monitoring, and centralized SIEM. Designed to simulate an enterprise SOC environment for hands-on threat detection and incident response.
+A segmented home network lab built from scratch on a single mini PC — featuring VLAN isolation, a dedicated firewall/router, IDS monitoring, centralized SIEM, and SOAR automation. Designed to simulate an enterprise SOC environment for hands-on threat detection and incident response.
 
 > **📄 Full build documentation:** For the complete phase-by-phase walkthrough with commands, configs, and detailed troubleshooting — see [docs/full-lab-writeup.pdf](docs/full-lab-writeup.pdf)
 
@@ -27,13 +27,16 @@ ISP Gateway (Bridge Mode)
   [TP-Link TL-SG108E — 802.1Q VLAN Trunking]
         │
   ┌─────┴──────┐
-  │  Proxmox   │──── Kali Linux    (attack VM)
-  │    VE      │──── Ubuntu Server  (target + Wazuh agent)
-  │  M910q     │──── Windows 11     (target + Wazuh agent)
-  │            │──── Wazuh 4.14.2   (SIEM — manager/indexer/dashboard)
+  │  Proxmox   │──── Kali Linux     (attack VM)
+  │    VE      │──── Ubuntu Server   (target + Wazuh agent + Shuffle SOAR)
+  │  M910q     │──── Windows 11      (target + Wazuh agent)
+  │            │──── Wazuh 4.14.2    (SIEM — manager/indexer/dashboard)
   └────────────┘
         │
   [TP-Link Omada EAP723 — 3 SSIDs mapped to VLANs]
+
+  Detection Flow:
+  Attack → Suricata (network) + Wazuh agents (endpoint) → Wazuh SIEM → Shuffle SOAR
 ```
 
 ---
@@ -46,6 +49,7 @@ ISP Gateway (Bridge Mode)
 | Firewall / Router | pfSense 2.8.1 | VLAN routing, NAT, DHCP, firewall rules |
 | IDS | Suricata 7.0.11 (on pfSense) | Network intrusion detection on LAN interface |
 | SIEM | Wazuh 4.14.2 | Log collection, file integrity monitoring, alerts |
+| SOAR | Shuffle (Docker) | Security orchestration and automated response |
 | Managed Switch | TP-Link TL-SG108E | 802.1Q VLAN trunking |
 | Wireless AP | TP-Link Omada EAP723 | 3 SSIDs segmented by VLAN |
 | WAN Adapter | UGREEN USB NIC (ASIX AX88179) | Dedicated WAN uplink to pfSense |
@@ -73,7 +77,7 @@ The ISP gateway (Rogers Ignite) runs in bridge mode, with a **dedicated USB NIC*
 
 ---
 
-## 📊 Monitoring Stack
+## 📊 Monitoring & Response Stack
 
 ### Wazuh 4.14.2 (SIEM)
 
@@ -94,6 +98,14 @@ Suricata runs as a pfSense package on the **LAN interface (VLAN 20)**, inspectin
 Suricata's EVE JSON alert logs are forwarded from pfSense to the Wazuh manager via a custom UDP forwarder script. Wazuh's built-in Suricata decoder (rule group `suricata`, rule ID `86601`) automatically parses the incoming alerts and enriches them with MITRE ATT&CK classifications.
 
 This gives the lab a **single-pane-of-glass** view: endpoint security events from Wazuh agents alongside network intrusion alerts from Suricata, all in one dashboard.
+
+### Shuffle SOAR (Security Orchestration & Automated Response)
+
+Shuffle runs as a Docker deployment on the Ubuntu Server VM, providing drag-and-drop security automation. Wazuh is configured to forward alerts (level 3+) to Shuffle via a webhook integration in `ossec.conf`.
+
+**Current workflow — "Wazuh Alert Triage":** Wazuh alerts trigger the Shuffle webhook, which receives the full alert JSON including source IP, rule ID, agent name, severity, and raw log data. This provides the foundation for building automated response playbooks such as IP blocking, alert enrichment, and case creation.
+
+**Why this matters:** In a production SOC, analysts don't manually check every alert. SOAR platforms like Shuffle automate the repetitive triage steps — extracting IOCs, checking reputation databases, and escalating confirmed threats — so analysts can focus on investigation and response.
 
 ---
 
@@ -142,6 +154,9 @@ Integrating Suricata with Wazuh seemed straightforward — enable syslog forward
 ### Detection gaps are as important as detections
 Running attack simulations revealed that intra-VLAN traffic between VMs on the same Proxmox bridge is invisible to Suricata — because it never traverses pfSense. This mirrors a real enterprise problem: lateral movement within a flat network segment evades perimeter-focused IDS. Knowing where your detection *doesn't* work is just as critical as knowing where it does.
 
+### Integration is where most projects fail
+Connecting Wazuh to Shuffle SOAR required getting the webhook URL format right, using HTTP instead of HTTPS to avoid self-signed certificate rejection, and ensuring the XML integration block in `ossec.conf` was syntactically correct. Each of these was a small detail, but any one of them silently breaks the entire pipeline. The lesson: automation tools only work when every handoff between systems is tested independently before trusting the full chain.
+
 ---
 
 ## 📸 Screenshots
@@ -155,6 +170,7 @@ Running attack simulations revealed that intra-VLAN traffic between VMs on the s
 | Suricata IDS Alert | ![Suricata](docs/screenshots/suricata-alert.png) |
 | Suricata Alerts in Wazuh SIEM | ![Suricata-Wazuh](docs/screenshots/suricata-wazuh-integration.png) |
 | Attack Simulation Alerts | ![Attacks](docs/screenshots/attack-simulation-alerts.png) |
+| Shuffle SOAR — Wazuh Alerts | ![Shuffle](docs/screenshots/shuffle-soar-alerts.png) |
 | Switch VLAN Config | ![VLANs](docs/screenshots/vlan-config.png) |
 
 ---
@@ -178,6 +194,7 @@ homelab-cybersecurity/
 │       ├── suricata-alert.png
 │       ├── suricata-wazuh-integration.png
 │       ├── attack-simulation-alerts.png
+│       ├── shuffle-soar-alerts.png
 │       └── vlan-config.png
 ├── configs/
 │   ├── pfsense/
@@ -201,8 +218,8 @@ homelab-cybersecurity/
 - [x] Deploy Suricata IDS for network-level threat detection
 - [x] Integrate Suricata alerts with Wazuh SIEM dashboard
 - [x] Run MITRE ATT&CK-mapped attack simulations
+- [x] Add Shuffle SOAR for automated response playbooks
 - [ ] Integrate TheHive for incident case management
-- [ ] Add Shuffle SOAR for automated response playbooks
 - [ ] Feed threat intel via MISP
 - [ ] Add vulnerability scanning with OpenVAS
 
