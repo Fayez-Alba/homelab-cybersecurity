@@ -219,9 +219,9 @@ homelab-cybersecurity/
 - [x] Integrate Suricata alerts with Wazuh SIEM dashboard
 - [x] Run MITRE ATT&CK-mapped attack simulations
 - [x] Add Shuffle SOAR for automated response playbooks
-- [ ] Integrate TheHive for incident case management
-- [ ] Feed threat intel via MISP
-- [ ] Add vulnerability scanning with OpenVAS
+
+
+
 
 ---
 
