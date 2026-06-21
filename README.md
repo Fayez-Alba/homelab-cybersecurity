@@ -103,9 +103,13 @@ This gives the lab a **single-pane-of-glass** view: endpoint security events fro
 
 Shuffle runs as a Docker deployment on the Ubuntu Server VM, providing drag-and-drop security automation. Wazuh is configured to forward alerts (level 3+) to Shuffle via a webhook integration in `ossec.conf`.
 
-**Current workflow — "Wazuh Alert Triage":** Wazuh alerts trigger the Shuffle webhook, which receives the full alert JSON including source IP, rule ID, agent name, severity, and raw log data. This provides the foundation for building automated response playbooks such as IP blocking, alert enrichment, and case creation.
+**Workflow — "Wazuh Alert Triage":**
 
-**Why this matters:** In a production SOC, analysts don't manually check every alert. SOAR platforms like Shuffle automate the repetitive triage steps — extracting IOCs, checking reputation databases, and escalating confirmed threats — so analysts can focus on investigation and response.
+1. Wazuh alert triggers the Shuffle webhook with full alert JSON
+2. A regex capture group automatically extracts the attacker's source IP from the alert text
+3. The extracted IP is available for downstream actions — threat intel lookups, firewall blocks, or case creation
+
+This demonstrates the core SOAR loop: **detect → enrich → act**. The playbook receives raw alert data, extracts actionable IOCs (the attacker IP), and prepares them for automated response — the same pattern used in production SOC environments with platforms like Cortex XSOAR, Splunk SOAR, and Tines.
 
 ---
 
@@ -170,7 +174,8 @@ Connecting Wazuh to Shuffle SOAR required getting the webhook URL format right, 
 | Suricata IDS Alert | ![Suricata](docs/screenshots/suricata-alert.png) |
 | Suricata Alerts in Wazuh SIEM | ![Suricata-Wazuh](docs/screenshots/suricata-wazuh-integration.png) |
 | Attack Simulation Alerts | ![Attacks](docs/screenshots/attack-simulation-alerts.png) |
-| Shuffle SOAR — Wazuh Alerts | ![Shuffle](docs/screenshots/shuffle-soar-alerts.png) |
+| Shuffle SOAR — Alert Intake | ![Shuffle](docs/screenshots/shuffle-soar-alerts.png) |
+| Shuffle SOAR — IP Extraction | ![Shuffle-IP](docs/screenshots/shuffle-ip-extraction.png) |
 | Switch VLAN Config | ![VLANs](docs/screenshots/vlan-config.png) |
 
 ---
@@ -195,6 +200,7 @@ homelab-cybersecurity/
 │       ├── suricata-wazuh-integration.png
 │       ├── attack-simulation-alerts.png
 │       ├── shuffle-soar-alerts.png
+│       ├── shuffle-ip-extraction.png
 │       └── vlan-config.png
 ├── configs/
 │   ├── pfsense/
@@ -218,8 +224,8 @@ homelab-cybersecurity/
 - [x] Deploy Suricata IDS for network-level threat detection
 - [x] Integrate Suricata alerts with Wazuh SIEM dashboard
 - [x] Run MITRE ATT&CK-mapped attack simulations
-- [x] Add Shuffle SOAR for automated response playbooks
-- [ ] Integrate TheHive for incident case management
+- [x] Add Shuffle SOAR with automated IP extraction playbook
+- [ ] Document SOC alert triage exercise
 - [ ] Feed threat intel via MISP
 - [ ] Add vulnerability scanning with OpenVAS
 
