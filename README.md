@@ -225,7 +225,7 @@ homelab-cybersecurity/
 - [x] Integrate Suricata alerts with Wazuh SIEM dashboard
 - [x] Run MITRE ATT&CK-mapped attack simulations
 - [x] Add Shuffle SOAR with automated IP extraction playbook
-- [ ] Document SOC alert triage exercise
+- [x] Document SOC alert triage exercise
 - [ ] Feed threat intel via MISP
 - [ ] Add vulnerability scanning with OpenVAS
 
