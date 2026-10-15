@@ -81,7 +81,7 @@ The ISP gateway (Rogers Ignite) runs in bridge mode, with a **dedicated USB NIC*
 
 ### Wazuh 4.14.2 (SIEM)
 
-Wazuh runs as a dedicated VM with the full stack (manager, indexer, dashboard). Agents on all three target VMs ship logs over port 1514. The Filebeat pipeline routes parsed events into the indexer for dashboard visualization.
+Wazuh runs as a dedicated VM with the full stack (manager, indexer, dashboard). Agents on three VMs (both targets plus Kali) ship logs over port 1514. The Filebeat pipeline routes parsed events into the indexer for dashboard visualization.
 
 Current monitoring coverage includes file integrity monitoring (FIM), security event correlation, and agent health tracking. pfSense firewall logs are ingested via syslog.
 
