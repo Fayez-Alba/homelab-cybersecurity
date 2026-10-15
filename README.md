@@ -91,7 +91,7 @@ Suricata runs as a pfSense package on the **LAN interface (VLAN 20)**, inspectin
 
 **Rule sources:** Emerging Threats Open (ET Open) — 26,000+ rules covering scan detection, exploit signatures, malware communication, DNS abuse, and attack response patterns.
 
-**Why LAN and not WAN:** Suricata on the WAN interface would mostly duplicate pfSense's default deny-all inbound policy. On the LAN interface, it catches the traffic that matters — outbound command-and-control, lateral movement patterns, and responses to attack tools.
+**Why LAN and not WAN:** Suricata on the WAN interface would mostly duplicate pfSense's default deny-all inbound policy. On the LAN interface, it inspects everything crossing the lab boundary — outbound command-and-control, callbacks, and attack-tool traffic to or from other segments. It does not see VM-to-VM traffic inside VLAN 20, which never leaves the Proxmox bridge (see Key finding below).
 
 ### Suricata → Wazuh Integration
 
